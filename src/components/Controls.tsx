@@ -220,7 +220,7 @@ const Controls = () => {
       {isMobile && (
         <div style={{
           position: 'absolute',
-          bottom: '20px',
+          bottom: window.innerWidth <= 480 ? '40px' : '20px',
           left: '50%',
           transform: 'translateX(-50%)',
           display: 'flex',
@@ -280,7 +280,11 @@ const Controls = () => {
               →
             </button>
           </div>
-          <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'center' }}>
+          <div style={{ 
+            marginTop: window.innerWidth <= 480 ? '-5px' : '0px', 
+            display: 'flex', 
+            justifyContent: 'center' 
+          }}>
             <button
               style={{
                 ...getButtonStyle('nitro'),
