@@ -1,21 +1,52 @@
-import { useEffect } from 'react';
-import { MeshStandardMaterial } from 'three';
+import { useEffect, useState } from 'react';
+import { MeshStandardMaterial, BackSide } from 'three';
 
-const Environment = () => {
-  // Debug console
+// Helper function to check if it's daytime (6 AM to 6 PM)
+const isDaytime = () => {
+  const hours = new Date().getHours();
+  return hours >= 6 && hours < 18;
+};
+
+interface EnvironmentProps {
+  isDay?: boolean;
+}
+
+const Environment = ({ isDay: externalIsDay }: EnvironmentProps = {}) => {
+  // State to track if it's day or night
+  const [localIsDay, setLocalIsDay] = useState(isDaytime());
+
+  // Use the external prop if provided, otherwise use the internal state
+  const isDay = externalIsDay !== undefined ? externalIsDay : localIsDay;
+
+  // Update day/night status every minute (only if not using external prop)
   useEffect(() => {
     console.log('Environment component mounted');
-  }, []);
+    
+    // Skip timer if external prop is provided
+    if (externalIsDay !== undefined) {
+      return;
+    }
+    
+    // Initial check
+    setLocalIsDay(isDaytime());
+    
+    // Update time every minute
+    const timeInterval = setInterval(() => {
+      setLocalIsDay(isDaytime());
+    }, 60000); // Check every minute
+    
+    return () => clearInterval(timeInterval);
+  }, [externalIsDay]);
 
   // Create enhanced materials with better visual properties
   const materialColors = {
-    buildingGlass: "#9ecfff",
+    buildingGlass: isDay ? "#f0f8ff" : "#9ecfff",
     treeTrunk: "#3b2913",
-    treeLeaves: "#008000",
+    treeLeaves: isDay ? "#5dc642" : "#008000",
     fountainStone: "#555555",
-    fountainWater: "#60B5FF",
+    fountainWater: isDay ? "#4dd8ff" : "#60B5FF",
     lampMetal: "#222222",
-    lampLight: "#ffaa55"
+    lampLight: isDay ? "#ffcc77" : "#ffaa55"
   };
 
   // Create fallback materials
@@ -141,8 +172,8 @@ const Environment = () => {
       <mesh position={[0, -0.05, 0]} rotation={[-Math.PI/2, 0, 0]} receiveShadow userData={{ type: 'collidable' }}>
         <planeGeometry args={[300, 300, 100, 100]} />
         <meshStandardMaterial 
-          color="#aa8855"
-          roughness={0.8}
+          color={isDay ? "#f2d8a0" : "#aa8855"}
+          roughness={isDay ? 0.9 : 0.8}
           metalness={0.1}
           displacementScale={0.2}
           displacementBias={-0.1}
@@ -838,7 +869,7 @@ const Environment = () => {
           {/* Light */}
           <mesh position={[0, -0.15, 0]} userData={{ type: 'collidable' }}>
             <sphereGeometry args={[0.2, 16, 16]} />
-            <meshBasicMaterial color="#ffaa55" />
+            <meshBasicMaterial color={materialColors.lampLight} />
           </mesh>
         </group>
       </group>
@@ -881,13 +912,13 @@ const Environment = () => {
             {/* Lamp fixture */}
             <mesh castShadow userData={{ type: 'collidable' }}>
               <cylinderGeometry args={[0.3, 0.3, 0.2, 8]} />
-              <meshBasicMaterial color={materialColors.lampLight} />
+              <meshBasicMaterial color={materialColors.lampMetal} />
             </mesh>
             
             {/* Light */}
             <mesh position={[0, -0.15, 0]} userData={{ type: 'collidable' }}>
               <sphereGeometry args={[0.2, 16, 16]} />
-              <meshBasicMaterial color="#ffff99" />
+              <meshBasicMaterial color={isDay ? "#fffbaa" : "#ffff99"} />
             </mesh>
           </group>
         </group>
@@ -979,15 +1010,147 @@ const Environment = () => {
     }
   });
 
-  // Add a dark, horror-themed sky
-  const sky = (
+  // Add a sky based on time of day
+  const sky = isDay ? (
+    // Day sky with harsh sun
+    <group>
+      {/* Bright blue sky dome - clearer, more vibrant */}
+      <mesh position={[0, 0, 0]}>
+        <sphereGeometry args={[500, 32, 32]} />
+        <meshBasicMaterial 
+          color="#7ecbff" 
+          side={BackSide} 
+          fog={false}
+        />
+      </mesh>
+
+      {/* Intense sun - much larger and brighter */}
+      <mesh position={[200, 350, -150]}>
+        <sphereGeometry args={[80, 32, 32]} />
+        <meshBasicMaterial 
+          color="#ffe566" 
+          fog={false}
+        />
+      </mesh>
+      
+      {/* Sun glare effect */}
+      <mesh position={[200, 350, -150]}>
+        <sphereGeometry args={[120, 32, 32]} />
+        <meshBasicMaterial 
+          color="#ffcc55" 
+          fog={false}
+          transparent={true}
+          opacity={0.4}
+        />
+      </mesh>
+      
+      {/* Sun halo/corona */}
+      <mesh position={[200, 350, -150]}>
+        <sphereGeometry args={[200, 32, 32]} />
+        <meshBasicMaterial 
+          color="#ffdd78" 
+          fog={false}
+          transparent={true}
+          opacity={0.15}
+        />
+      </mesh>
+      
+      {/* Sun rays (flares) */}
+      {Array.from({ length: 8 }).map((_, i) => {
+        const angle = (i / 8) * Math.PI * 2;
+        const length = 400 + Math.random() * 200;
+        const width = 20 + Math.random() * 40;
+        
+        return (
+          <mesh 
+            key={`sun-ray-${i}`} 
+            position={[200, 350, -150]} 
+            rotation={[0, 0, angle]}
+          >
+            <planeGeometry args={[length, width]} />
+            <meshBasicMaterial 
+              color="#ffcc55" 
+              fog={false}
+              transparent={true}
+              opacity={0.1 + Math.random() * 0.1}
+            />
+          </mesh>
+        );
+      })}
+      
+      {/* Fewer, more scattered clouds to represent very hot day */}
+      {Array.from({ length: 15 }).map((_, i) => {
+        const phi = Math.random() * Math.PI * 2;
+        const distance = 200 + Math.random() * 200;
+        const height = 120 + Math.random() * 180;
+        const x = distance * Math.cos(phi);
+        const z = distance * Math.sin(phi);
+        const y = height;
+        
+        // Cloud size
+        const size = 15 + Math.random() * 35;
+        
+        return (
+          <group key={`cloud-${i}`} position={[x, y, z]}>
+            {/* Create cloud with multiple overlapping spheres */}
+            <mesh position={[0, 0, 0]}>
+              <sphereGeometry args={[size * 0.6, 8, 8]} />
+              <meshBasicMaterial color="#ffffff" fog={false} transparent opacity={0.85} />
+            </mesh>
+            <mesh position={[size * 0.4, 0, 0]}>
+              <sphereGeometry args={[size * 0.5, 8, 8]} />
+              <meshBasicMaterial color="#ffffff" fog={false} transparent opacity={0.85} />
+            </mesh>
+            <mesh position={[-size * 0.4, 0, 0]}>
+              <sphereGeometry args={[size * 0.5, 8, 8]} />
+              <meshBasicMaterial color="#ffffff" fog={false} transparent opacity={0.85} />
+            </mesh>
+            <mesh position={[0, 0, size * 0.4]}>
+              <sphereGeometry args={[size * 0.5, 8, 8]} />
+              <meshBasicMaterial color="#ffffff" fog={false} transparent opacity={0.85} />
+            </mesh>
+            <mesh position={[0, 0, -size * 0.4]}>
+              <sphereGeometry args={[size * 0.5, 8, 8]} />
+              <meshBasicMaterial color="#ffffff" fog={false} transparent opacity={0.85} />
+            </mesh>
+          </group>
+        );
+      })}
+      
+      {/* Heat distortion effect (subtle wavy planes in distance) */}
+      {Array.from({ length: 8 }).map((_, i) => {
+        const angle = (i / 8) * Math.PI * 2;
+        const distance = 80;
+        const x = Math.cos(angle) * distance;
+        const z = Math.sin(angle) * distance;
+        
+        return (
+          <mesh
+            key={`heat-distortion-${i}`}
+            position={[x, 1, z]}
+            rotation={[-Math.PI/2, 0, angle]}
+            receiveShadow
+          >
+            <planeGeometry args={[100, 50]} />
+            <meshBasicMaterial 
+              color="#ffffff"
+              transparent={true}
+              opacity={0.03}
+              fog={false}
+            />
+          </mesh>
+        );
+      })}
+    </group>
+  ) : (
+    // Night sky - keep the existing night sky code
     <group>
       {/* Dark sky dome - larger and more visible */}
       <mesh position={[0, 0, 0]}>
         <sphereGeometry args={[500, 32, 32]} />
         <meshBasicMaterial 
           color="#0a1030" 
-          side={2} // BackSide to render from inside
+          side={BackSide} 
           fog={false}
         />
       </mesh>
@@ -1065,6 +1228,14 @@ const Environment = () => {
     if (Math.abs(x) < 40 && Math.abs(z) < 40) continue;
     if (Math.sqrt(x*x + z*z) < 40) continue;
     
+    // Different color palettes for day and night
+    const dayColors = ["#f2dcac", "#e8c98e", "#f5e0b5", "#e3c07c"];
+    const nightColors = ["#bb9966", "#c4a070"];
+    
+    // Choose color based on time of day
+    const colorPalette = isDay ? dayColors : nightColors;
+    const randomColor = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+    
     sandPatches.push(
       <mesh
         key={`sand-patch-${i}`}
@@ -1074,10 +1245,10 @@ const Environment = () => {
       >
         <circleGeometry args={[size, 24]} />
         <meshStandardMaterial 
-          color={Math.random() > 0.5 ? "#bb9966" : "#c4a070"}
+          color={randomColor}
           transparent={true}
-          opacity={0.3 + Math.random() * 0.15} // Reduced opacity from 0.6-0.8 to 0.3-0.45
-          roughness={0.9}
+          opacity={isDay ? 0.4 + Math.random() * 0.2 : 0.3 + Math.random() * 0.15}
+          roughness={isDay ? 1.0 : 0.9}
         />
       </mesh>
     );
@@ -1094,7 +1265,7 @@ const Environment = () => {
       {lampPosts}
       {fountains}
       {boundaryWalls}
-      {horrorElements}
+      {isDay ? null : horrorElements}
     </>
   );
 };

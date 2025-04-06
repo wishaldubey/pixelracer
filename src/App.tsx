@@ -13,6 +13,12 @@ const ANIMATION_FRAME_RATE = 1 / 120;
 
 const PHYSICS_STEP_FREQ = 1 / 120; // More frequent physics updates
 
+// Helper function to check if it's daytime (6 AM to 6 PM)
+const isDaytime = () => {
+  const hours = new Date().getHours();
+  return hours >= 6 && hours < 18;
+};
+
 interface CameraControllerProps {
   target: MutableRefObject<Object3D | null>;
 }
@@ -173,6 +179,15 @@ function App() {
   const [carLoaded, setCarLoaded] = useState(false)
   const [showStats, setShowStats] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [isDay, setIsDay] = useState(isDaytime())
+
+  // Check time immediately on app load
+  useEffect(() => {
+    // Initial time check
+    const currentIsDay = isDaytime();
+    console.log(`Initial time check - isDay: ${currentIsDay}`);
+    setIsDay(currentIsDay);
+  }, []);
 
   useEffect(() => {
     console.log('App component mounted');
@@ -197,36 +212,40 @@ function App() {
         (navigator.maxTouchPoints > 0);
       
       setIsMobile(isMobileDevice);
-      
-      // Adjust pixel ratio for better performance on mobile
-      if (isMobileDevice) {
-        // Lower pixel ratio for better performance on mobile
-        const lowerPixelRatio = Math.min(1.5, window.devicePixelRatio);
-        // Will be used when we create the canvas
-        (window as any).__pixelRatio = lowerPixelRatio;
-      }
     };
     
+    // Update time every minute
+    const timeInterval = setInterval(() => {
+      const updatedIsDay = isDaytime();
+      console.log(`Time check update - isDay: ${updatedIsDay}`);
+      setIsDay(updatedIsDay);
+    }, 60000); // Check every minute
+
     setViewportMeta();
     checkMobile();
     
-    // Check for WebGL support
-    const supported = isWebGLSupported();
-    console.log('WebGL supported:', supported);
-    setWebGLSupported(supported);
-
-    // Enable debug stats with 'stats' in URL
-    if (window.location.href.includes('stats')) {
-      setShowStats(true);
+    // Check WebGL support
+    if (!isWebGLSupported()) {
+      console.error('WebGL not supported');
+      setWebGLSupported(false);
     }
-
+    
     // Simulate loading time
     const timeout = setTimeout(() => {
       console.log('Loading screen timeout completed');
+      
+      // Check time again when loading completes
+      const loadedIsDay = isDaytime();
+      console.log(`Time check after loading - isDay: ${loadedIsDay}`);
+      setIsDay(loadedIsDay);
+      
       setIsLoading(false)
     }, 2000) // Reduced loading time for testing
 
-    return () => clearTimeout(timeout)
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(timeInterval);
+    };
   }, [])
 
   // Monitor car loading status
@@ -262,7 +281,6 @@ function App() {
     };
 
     window.addEventListener('error', handleError);
-    return () => window.removeEventListener('error', handleError);
   }, []);
 
   // Enable keyboard debugging
@@ -274,7 +292,6 @@ function App() {
     };
     
     window.addEventListener('keydown', keyDebug);
-    return () => window.removeEventListener('keydown', keyDebug);
   }, []);
 
   // Give focus to the canvas to ensure keyboard controls work
@@ -327,12 +344,16 @@ function App() {
           }}
         >
           <Suspense fallback={null}>
-            <Scene carRef={carRef} />
+            <Scene carRef={carRef} isDay={isDay} />
             <CameraController target={carRef} />
-            <fog attach="fog" args={['#0a1030', 40, 250]} />
+            <fog 
+              attach="fog" 
+              args={isDay ? ['#e0f0ff', 80, 400] : ['#0a1030', 40, 250]} 
+            />
             <directionalLight
-              position={[10, 20, 10]}
-              intensity={1.5}
+              position={isDay ? [60, 150, 80] : [10, 20, 10]}
+              intensity={isDay ? 3.5 : 1.5}
+              color={isDay ? "#fff2c9" : "#ffffff"}
               castShadow
               shadow-mapSize-width={2048}
               shadow-mapSize-height={2048}
@@ -343,11 +364,11 @@ function App() {
               shadow-camera-bottom={-50}
               shadow-bias={-0.0001}
             />
-            <ambientLight intensity={0.6} />
+            <ambientLight intensity={isDay ? 1.2 : 0.6} color={isDay ? "#fffbef" : "#ffffff"} />
             <hemisphereLight 
-              color="#8eb2ff" 
-              groundColor="#aa8855" 
-              intensity={0.5} 
+              color={isDay ? "#ffe7a9" : "#8eb2ff"} 
+              groundColor={isDay ? "#f2debb" : "#aa8855"} 
+              intensity={isDay ? 1.2 : 0.5} 
             />
             <PerspectiveCamera makeDefault fov={75} position={[0, 10, 15]} />
           </Suspense>

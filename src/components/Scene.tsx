@@ -7,9 +7,10 @@ import Environment from './Environment';
 
 interface SceneProps {
   carRef: MutableRefObject<Object3D | null>;
+  isDay?: boolean; // Optional prop to control day/night
 }
 
-const Scene: React.FC<SceneProps> = ({ carRef }) => {
+const Scene: React.FC<SceneProps> = ({ carRef, isDay }) => {
   const [textureLoaded, setTextureLoaded] = useState(false);
   const [textureError, setTextureError] = useState(false);
   const groundRef = useRef<Mesh>(null);
@@ -27,7 +28,7 @@ const Scene: React.FC<SceneProps> = ({ carRef }) => {
       <Car carRef={carRef} />
 
       {/* Environment */}
-      <Environment />
+      <Environment isDay={isDay} />
 
       {/* Additional directional light for better shadows */}
       <directionalLight
